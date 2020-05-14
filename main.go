@@ -27,6 +27,8 @@ type vk struct {
 }
 
 var rewrites = map[vk]vk{
+	{v: "apps/v1beta1"}:                        {v: "apps/v1"},
+	{v: "apps/v1beta2"}:                        {v: "apps/v1"},
 	{v: "apps/v1beta1", k: "Deployment"}:       {v: "apps/v1", k: "Deployment"},
 	{v: "apps/v1beta2", k: "Deployment"}:       {v: "apps/v1", k: "Deployment"},
 	{v: "extensions/v1beta1", k: "Deployment"}: {v: "apps/v1", k: "Deployment"},
@@ -58,6 +60,12 @@ func updateNode(node *yaml.Node, defaultNS string) {
 		for i := 0; i < len(n.Content); i += 2 {
 			k := n.Content[i]
 			v := n.Content[i+1]
+			/*
+				bs, _ := yaml.Marshal(k)
+				fmt.Printf("k: %s\n", bs)
+				bs, _ = yaml.Marshal(v)
+				fmt.Printf("v: %s\n", bs)
+			*/
 			switch k.Value {
 			case "apiVersion":
 				apiVersionIndex = i + 1
@@ -70,14 +78,25 @@ func updateNode(node *yaml.Node, defaultNS string) {
 				namespace = getFromMap(v, "namespace", defaultNS)
 			}
 
-			if remap, ok := rewrites[vk{
-				v: apiVersion,
-				k: kind,
-			}]; ok {
-				fmt.Printf("remap %v/%v apiVersion: %v kind: %v to apiVersion: %v kind: %v \n", namespace, name, apiVersion, kind, remap.v, remap.k)
-				n.Content[apiVersionIndex].Value = remap.v
-				n.Content[kindIndex].Value = remap.k
-			}
+		}
+		if remap, ok := rewrites[vk{
+			v: apiVersion,
+			k: kind,
+		}]; ok {
+
+			fmt.Printf("remap %v/%v apiVersion: %v kind: %v to apiVersion: %v kind: %v \n", namespace, name, apiVersion, kind, remap.v, remap.k)
+			n.Content[apiVersionIndex].Value = remap.v
+			n.Content[kindIndex].Value = remap.k
+			return
+		}
+
+		if remap, ok := rewrites[vk{
+			v: apiVersion,
+		}]; ok {
+
+			fmt.Printf("remap %v/%v apiVersion: %v kind: %v to apiVersion: %v kind: %v \n", namespace, name, apiVersion, kind, remap.v, kind)
+			n.Content[apiVersionIndex].Value = remap.v
+			n.Content[kindIndex].Value = kind
 		}
 	}
 }
