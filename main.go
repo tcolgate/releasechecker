@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -12,8 +13,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/gogo/protobuf/proto"
-	pbr "github.com/tcolgate/helmreleaseupgrader/pkg/proto/hapi/release"
 	"gopkg.in/yaml.v3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -154,16 +153,16 @@ func main() {
 		log.Fatalf((err.Error()))
 	}
 
-	cms, err := clientset.CoreV1().ConfigMaps("").List(metav1.ListOptions{LabelSelector: "OWNER=TILLER,STATUS=DEPLOYED"})
+	cms, err := clientset.CoreV1().Secrets("").List(metav1.ListOptions{LabelSelector: "owner=helm,status=deployed"})
 	if err != nil {
 		log.Fatalf((err.Error()))
 	}
 
 	for _, cm := range cms.Items {
-		vstr := cm.Labels["VERSION"]
+		vstr := cm.Labels["version"]
 		_, err := strconv.Atoi(vstr)
 		if err != nil {
-			log.Printf("configmap %v has bad version, %v", cm.Name, err)
+			log.Printf("secret %v has bad version, %v", cm.Name, err)
 			continue
 		}
 
@@ -172,7 +171,7 @@ func main() {
 			log.Printf("configmap %v missing release", cm.Name)
 			continue
 		}
-		zbs, err := base64.StdEncoding.DecodeString(data)
+		zbs, err := base64.StdEncoding.DecodeString(string(data))
 		if err != nil {
 			log.Printf("could not base64 decode release %v, %v", cm.Name, err)
 			continue
@@ -193,9 +192,11 @@ func main() {
 			continue
 		}
 
-		r := pbr.Release{}
+		r := struct {
+			Manifest string
+		}{}
 
-		err = proto.Unmarshal(bs.Bytes(), &r)
+		err = json.Unmarshal(bs.Bytes(), &r)
 		if err != nil {
 			log.Printf("could not proto decode release %v, %v", cm.Name, err)
 			continue

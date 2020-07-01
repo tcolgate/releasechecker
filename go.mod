@@ -1,4 +1,4 @@
-module github.com/tcolgate/helmreleaseupgrader
+module github.com/tcolgate/releasechecker
 
 go 1.13
 
